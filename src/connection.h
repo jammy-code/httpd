@@ -1,8 +1,12 @@
 #ifndef __CONNECTION_H__
 #define __CONNECTION_H__
 
+include “httpd.h”
+
 struct connection {
 	int status;
+	struct httpd *server;
+	
 	int socket_fd;	
 
 	char *hdr_accept;//text/plain
@@ -16,10 +20,13 @@ struct connection {
 	char *hdr_cookie;
 	char *hdr_content_type;	//application/x-www-form-urlencoded
 	int hdr_content_len;
+	unsigned char *postdata;
 };
 
 
 const char *getStatusDesc(int code);
+int parseHeader(struct connection *conn);
+int getContentLenght(struct connection *conn);
 
 
 #endif
