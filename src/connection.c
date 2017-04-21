@@ -9,6 +9,7 @@ struct connection * add_connection(struct httpd *phttpd, int socked_fd)
 		int i;
 		memset(conn, 0, sizeof(struct connection));
 		conn->socket_fd = socket_fd;
+		conn->server = phttpd;
 		if (phttpd->conn_sum == 0){
 			phttpd->conns[0] = conn;
 			phttpd->conn_sum = 1;
