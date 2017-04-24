@@ -31,6 +31,28 @@ struct connection * add_connection(struct httpd *phttpd, int socked_fd)
 	return conn;
 }
 
+void del_connfd(struct httpd *phttpd, int socked_fd)
+{
+	int i, j;
+	for (i=phttpd->conn_sum-1; i>=0; i--){
+		if (phttpd->conns[i]->socket_fd == socked_fd){
+			free_connection(phttpd->conns[i]);
+			for (j=i+1; j<=phttpd->conn_sum-1; j++,i++){
+				phttpd->conns[i]= phttpd->conns[j];
+				 phttpd->conns[j] = NULL;
+			}
+			break;
+		}
+	}
+}
+
+int parse_header(struct httpd *phttpd, int socked_fd, const char *buff, int len)
+{
+	int state = 0;
+	
+	
+	return state;	
+}
 
 
 const char *getStatusDesc(int code)
