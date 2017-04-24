@@ -46,7 +46,27 @@ void del_connfd(struct httpd *phttpd, int socked_fd)
 	}
 }
 
-int parse_header(struct httpd *phttpd, int socked_fd, const char *buff, int len)
+struct connection* get_connection(struct httpd *phttpd, int socket)
+{
+	//使用二分法查找
+	int low=0;
+	int high=phttpd->conn_sum-1;
+	while(low<=high){
+		int mid=low+((high-low)>>1);
+		if (socket == phttpd->conns[mid]->socket_fd){
+			return phttpd->conns[mid];
+		}
+		else if (socket < phttpd->conns[mid]->socket_fd){
+			high = mid - 1;
+		}
+		else {
+			low = mid + 1；
+		}
+	}
+	return NULL;
+}
+
+int parse_header(struct connection* conn, const char *buff, int len)
 {
 	int state = 0;
 	
