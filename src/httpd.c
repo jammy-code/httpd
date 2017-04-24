@@ -236,11 +236,12 @@ void accept_request(struct httpd *phttpd, int sockfd)
                 else {
 			char *p = strstr(buf, "\r\n\r\n");
 			if (p){
+				struct connection* conn = get_connection(phttpd, socked);
 				hd_size = 4 +  (p - buf);
 				printf("header size: %d\n", hd_size);	
 				buf[hd_size] = 0;
-				//recv(sockfd, buf, hd_size, 0);
-				parse_header(phttpd, sockfd, p-buf+4);
+				recv(sockfd, buf, hd_size, 0);
+				parse_header(conn, buf, hd_size);
 
 			}
 			printf("get %d bytes of content: %s\n", ret, buf);  
