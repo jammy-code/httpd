@@ -225,12 +225,13 @@ void accept_request(struct httpd *phttpd, int sockfd)
                         break;  
                     }  
                     close( sockfd );  
-			del_connection(phttpd, sockfd);
+			del_connfd(phttpd, sockfd);
                     break;  
                 }  
                 else if( ret == 0 ){
 			printf("close socket: %d\n", sockfd);
 			close( sockfd );  
+			del_connfd(phttpd, sockfd);
                 }
                 else {
 			char *p = strstr(buf, "\r\n\r\n");
@@ -238,8 +239,8 @@ void accept_request(struct httpd *phttpd, int sockfd)
 				hd_size = 4 +  (p - buf);
 				printf("header size: %d\n", hd_size);	
 				buf[hd_size] = 0;
-				recv(sockfd, buf, hd_size, 0);
-				parse_header(buf);
+				//recv(sockfd, buf, hd_size, 0);
+				parse_header(phttpd, sockfd, p-buf+4);
 
 			}
 			printf("get %d bytes of content: %s\n", ret, buf);  
