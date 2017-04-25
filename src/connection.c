@@ -116,6 +116,28 @@ int parse_header(struct connection* conn, const char *buff, int len)
 	return state;	
 }
 
+int check_responder(struct connection* conn)
+{
+	int state = 0;
+	char *url = conn->url;
+	char path[512];
+	
+	if (conn->state)
+		return conn->state;
+	
+	
+	if (url[strlen(url)-1] == '/'){
+		path[sizeof(path)-1] = '\0';
+		strncpy(path, conn->server.conf->homedir, sizeof(path)-1);
+		strncat(path, url, sizeof(path)-strlen(path)-1);
+		strncat(path, DEFAULT_FILE, sizeof(path)-strlen(path)-1);
+		return state;
+	}
+	else {
+		//if 
+	}
+	return state;
+}
 
 const char *getStatusDesc(int code)
 {
