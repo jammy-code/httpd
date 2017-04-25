@@ -2,6 +2,17 @@
 #define __JNOS_HTTPD_H__
 
 
+enum HTTP_METHOD {
+	HTTP_METHOD_GET,	//http 0.9
+	HTTP_METHOD_HEAD,
+	HTTP_METHOD_POST,	//http 1.0
+	HTTP_METHOD_OPTIONS,
+	HTTP_METHOD_PUT,
+	HTTP_METHOD_DELETE,
+	HTTP_METHOD_TRACE,
+	HTTP_METHOD_CONNECT	//http 1.1
+};
+
 struct httpd_conf{
 	int port;
 	unsigned long ipv4;
