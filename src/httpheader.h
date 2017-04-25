@@ -64,8 +64,8 @@
  * HTTP header.
  * @{
  */
-#define HTTP_VERSION_1_0 "HTTP/1.0"
-#define HTTP_VERSION_1_1 "HTTP/1.1"
+#define HTTP_VERSION_1_0_STR "HTTP/1.0"
+#define HTTP_VERSION_1_1_STR "HTTP/1.1"
 
 /** @} */ /* end of group versions */
 
