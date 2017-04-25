@@ -1,5 +1,6 @@
 
-
+#include "httpd.h"
+#include "httpdheader.h"
 
 struct connection * add_connection(struct httpd *phttpd, int socked_fd)
 {
@@ -69,7 +70,48 @@ struct connection* get_connection(struct httpd *phttpd, int socket)
 int parse_header(struct connection* conn, const char *buff, int len)
 {
 	int state = 0;
+	char value[256]; 
+	char *p = buff;
+	int len = 0;
+	while(*p > ' ' && len<sizeof(value)-1){
+		value[len] = *p;
+		p++;
+		len++;
+	}
+	value[len] = '\0';
+	if (strcmp(value, HTTP_METHOD_GET_STR)==0){
+		conn->method = HTTP_METHOD_GET;
+	}
+	else if (strcmp(value, HTTP_METHOD_POST_STR)==0){
+		conn->method = HTTP_METHOD_POST;
+	}
+	else if (strcmp(value, HTTP_METHOD_HEAD_STR)==0){
+		conn->method = HTTP_METHOD_HEAD;
+	}
+	else {
+		conn->state = STATE_REQERR;
+		return conn->state;
+	}
 	
+	while(*p <=' ' && p <buff+len) p++;
+	len = 0;
+	while (*p > ' ' && len<sizeof(value)-1 && p<buff+len){
+		value[len] = *p;
+		p++;
+		len++;
+	}
+	value[len] = '\0';
+	conn->url = strdup(value);
+	
+	while(*p <=' ' && p <buff+len) p++;
+	if (strncmp(p, HTTP_VERSION_1_0_STR, strlen(HTTP_VERSION_1_0_STR))==0){
+		p += strlen(HTTP_VERSION_1_0_STR);
+	}
+	if (strncmp(p, HTTP_VERSION_1_1_STR, strlen(HTTP_VERSION_1_1_STR))==0){
+		p += strlen(HTTP_VERSION_1_1_STR);
+	}
+	p+=2; //\r\n
+	//parse other...
 	
 	return state;	
 }
