@@ -69,6 +69,28 @@ void bad_request(int client)
 	send(client, buf, sizeof(buf), 0);
 }
 
+void unimplemented(int client)
+{
+ char buf[1024];
+
+ sprintf(buf, "HTTP/1.0 501 Method Not Implemented\r\n");
+ send(client, buf, strlen(buf), 0);
+ sprintf(buf, SERVER_STRING);
+ send(client, buf, strlen(buf), 0);
+ sprintf(buf, "Content-Type: text/html\r\n");
+ send(client, buf, strlen(buf), 0);
+ sprintf(buf, "\r\n");
+ send(client, buf, strlen(buf), 0);
+ sprintf(buf, "<HTML><HEAD><TITLE>Method Not Implemented\r\n");
+ send(client, buf, strlen(buf), 0);
+ sprintf(buf, "</TITLE></HEAD>\r\n");
+ send(client, buf, strlen(buf), 0);
+ sprintf(buf, "<BODY><P>HTTP request method not supported.\r\n");
+ send(client, buf, strlen(buf), 0);
+ sprintf(buf, "</BODY></HTML>\r\n");
+ send(client, buf, strlen(buf), 0);
+}
+
 void not_found(int client)
 {
 	char buf[256];
@@ -210,11 +232,13 @@ int http_response(struct connection* conn)
 		case STATE_NOTFOUND:
 			not_found(conn->socket_fd);
 			break;
-		
+		case 501:
+			unimplemented(conn->socket_fd);
+			break;
 		case STATE_OK:
 		case 0:
 			if (conn->iscgi==0){
-				void headers(conn->socket_fd, conn->filepath)
+				void serve_file(conn->socket_fd, conn->filepath)
 			}
 			else
 				conn->cgihandle(conn);
