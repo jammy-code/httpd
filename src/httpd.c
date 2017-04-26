@@ -124,9 +124,6 @@ void send_file(int client, const char *filename)
 }
 
 
-
-
-
 //level trigger
 /*void epool_triger(struct epoll_event* events, int number, int epollfd, int listenfd )  
 {  
@@ -206,6 +203,29 @@ int get_line(int sock, char *buf, int size)
 	return i;
 }
 
+int http_response(struct connection* conn)
+{
+	int state = 0;
+	switch(conn->state){
+		case STATE_NOTFOUND:
+			not_found(conn->socket_fd);
+			break;
+		
+		case STATE_OK:
+		case 0:
+			if (conn->iscgi==0){
+				void headers(conn->socket_fd, conn->filepath)
+			}
+			else
+				conn->cgihandle(conn);
+			break;
+		case STATE_REQERR:
+		default:
+			bad_request(conn->socket_fd);
+			
+	}	
+	return state;
+}
 
 void accept_request(struct httpd *phttpd, int sockfd)
 {
@@ -242,6 +262,8 @@ void accept_request(struct httpd *phttpd, int sockfd)
 				buf[hd_size] = 0;
 				recv(sockfd, buf, hd_size, 0);
 				parse_header(conn, buf, hd_size);
+				check_responder(conn);
+				http_response(conn);
 
 			}
 			printf("get %d bytes of content: %s\n", ret, buf);  
