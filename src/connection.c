@@ -16,7 +16,7 @@ struct connection * add_connection(struct httpd *phttpd, int socket_fd)
 	conn = (struct connection *)malloc(sizeof(struct connection));
 	if (conn){
 		int i;
-		printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
+		printf("%s %d: %s() %08x\n", __FILE__, __LINE__, __func__, conn);
 		memset(conn, 0, sizeof(struct connection));
 		conn->socket_fd = socket_fd;
 		conn->server = phttpd;
@@ -83,9 +83,10 @@ struct connection* get_connection(struct httpd *phttpd, int socket)
 	//使用二分法查找
 	int low=0;
 	int high=phttpd->conn_sum-1;
-printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
+printf("%s %d: %s() %d\n", __FILE__, __LINE__, __func__, phttpd->conn_sum);
 	while(low<=high){
 		int mid=low+((high-low)>>1);
+printf("%s %d: %s() mid fd=%d\n", __FILE__, __LINE__, __func__, phttpd->conns[mid]->socket_fd);
 		if (socket == phttpd->conns[mid]->socket_fd){
 printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 			return phttpd->conns[mid];
