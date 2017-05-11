@@ -23,17 +23,20 @@ struct connection * add_connection(struct httpd *phttpd, int socket_fd)
 		if (phttpd->conn_sum == 0){
 			phttpd->conns[0] = conn;
 			phttpd->conn_sum = 1;
+		printf("%s %d: %s() index0=\n", __FILE__, __LINE__, __func__);
 			return conn;
 		}
 		for (i=phttpd->conn_sum-1; i>=0; i--){
 			if (conn->socket_fd < phttpd->conns[i]->socket_fd){
 				phttpd->conns[i+1]=phttpd->conns[i];
 				if (i==0){
-					phttpd->conns[i+1]= conn;
+					phttpd->conns[i]= conn;
+		printf("%s %d: %s() index=%d\n", __FILE__, __LINE__, __func__, i);
 				}
 			}
 			else {
 				phttpd->conns[i+1]= conn;
+		printf("%s %d: %s() index=%d\n", __FILE__, __LINE__, __func__, i+1);
 			}
 		}
 		phttpd->conn_sum += 1;
@@ -84,12 +87,16 @@ struct connection* get_connection(struct httpd *phttpd, int socket)
 	//使用二分法查找
 	int low=0;
 	int high=phttpd->conn_sum-1;
-printf("%s %d: %s() %d\n", __FILE__, __LINE__, __func__, phttpd->conn_sum);
+printf("%s %d: %s() find %d, count:%d%d\n", __FILE__, __LINE__, __func__, socket, phttpd->conn_sum);
+	for(low = 0; low=<high; low++){
+		printf("%d:%d\n", low, phttpd->conns[low]->socket_fd);
+	}
+	low=0;
 	while(low<=high){
 		int mid=low+((high-low)>>1);
-printf("%s %d: %s() mid=%d fd=%d\n", __FILE__, __LINE__, __func__, mid, phttpd->conns[mid]->socket_fd);
+printf("%s %d: %s()low=%d mid=%d high=%d fd=%d\n", __FILE__, __LINE__, __func__, low, mid, high, phttpd->conns[mid]->socket_fd);
 		if (socket == phttpd->conns[mid]->socket_fd){
-printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
+printf("%s %d: %s() found!\n", __FILE__, __LINE__, __func__);
 			return phttpd->conns[mid];
 		}
 		else if (socket < phttpd->conns[mid]->socket_fd){
