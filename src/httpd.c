@@ -317,7 +317,7 @@ static void epool_triger(struct epoll_event* events, int num, int epollfd, struc
             socklen_t client_addrlength = sizeof(client_address);  
             int connfd = accept(listenfd, (struct sockaddr*)&client_address, &client_addrlength);
             epoll_addfd(epollfd, connfd);
-		add_connection(phttpd, sockfd);
+		add_connection(phttpd, connfd);
         }  
         else if ( events[i].events & EPOLLIN )  
         {  
