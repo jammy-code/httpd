@@ -262,24 +262,26 @@ void accept_request(struct httpd *phttpd, int sockfd)
 	int hd_size = 0;
 
             /*因为ET模式只触发一次，所以使用循环确保数据全部接受*/  
-            while(1){
-                memset( buf, '\0', BUFFER_SIZE );  
-                //int ret = recv(sockfd, buf, BUFFER_SIZE-1, 0);  
-                int ret = recv(sockfd, buf, BUFFER_SIZE-1, MSG_PEEK);
-                if( ret < 0 ) {  
-                     /*下面if条件成立，则读缓冲区数据已经读取完成*/  
-                    if( ( errno == EAGAIN ) || ( errno == EWOULDBLOCK ) ) {  
-                        printf( "read later\n" );  
-                        break;  
-                    }  
-                    close( sockfd );  
+	while(1){
+		memset( buf, '\0', BUFFER_SIZE );  
+		//int ret = recv(sockfd, buf, BUFFER_SIZE-1, 0);  
+		int ret = recv(sockfd, buf, BUFFER_SIZE-1, MSG_PEEK);
+		if( ret < 0 ) {  
+			/*下面if条件成立，则读缓冲区数据已经读取完成*/ 
+			if( ( errno == EAGAIN ) || ( errno == EWOULDBLOCK )) {
+				printf( "read later\n" );
+				break;
+			}
+			printf("close socket: %d\n", sockfd);
+			close( sockfd );
 			del_connfd(phttpd, sockfd);
-                    break;  
+			break;  
                 }  
                 else if( ret == 0 ){
 			printf("close socket: %d\n", sockfd);
 			close( sockfd );  
 			del_connfd(phttpd, sockfd);
+			break;  
                 }
                 else {
 			char *p = strstr(buf, "\r\n\r\n");
