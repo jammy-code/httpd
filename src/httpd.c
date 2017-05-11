@@ -294,7 +294,7 @@ void accept_request(struct httpd *phttpd, int sockfd)
 					http_response(conn);
 				}
 			}
-			printf("get %d bytes of content: %s\n", ret, buf);  
+			//printf("get %d bytes of content: %s\n", ret, buf);  
 		}
 	}
 }
