@@ -35,10 +35,11 @@ struct httpd {
 	int inited;
 
 	struct httpd_conf *conf;
-	struct connection *conns;
+	struct connection **conns;
 	int conn_sum;
 };
 
+#if 0
 struct connection {
 	int state;
 	int fd;
@@ -52,6 +53,7 @@ struct connection {
 
 
 };
+#endif
 
 //hconf can't free before destory_httpd
 struct httpd *create_httpd(struct httpd_conf *hconf);

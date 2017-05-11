@@ -10,7 +10,7 @@
 #include <errno.h>
 
 #include "httpd.h"
-
+#include "connection.h"
 #define MAX_EVENT 64
 
 #define SERVER_STRING "Server: jhttpd/0.1.0\r\n"
@@ -49,7 +49,7 @@ struct httpd *create_httpd(struct httpd_conf *hconf)
 		hconf->maxconn = 128;
 		phttpd->conns = malloc(sizeof(struct connection*) * 128);
 	}
-	if (httpd->conns){
+	if (phttpd->conns){
 		memset(phttpd->conns, 0, sizeof(struct connection*) * 128);
 	}
  	return phttpd;
@@ -238,7 +238,7 @@ int http_response(struct connection* conn)
 		case STATE_OK:
 		case 0:
 			if (conn->iscgi==0){
-				void serve_file(conn->socket_fd, conn->filepath)
+				send_file(conn->socket_fd, conn->filepath);
 			}
 			else
 				conn->cgihandle(conn);
@@ -280,7 +280,7 @@ void accept_request(struct httpd *phttpd, int sockfd)
                 else {
 			char *p = strstr(buf, "\r\n\r\n");
 			if (p){
-				struct connection* conn = get_connection(phttpd, socked);
+				struct connection* conn = get_connection(phttpd, sockfd);
 				hd_size = 4 +  (p - buf);
 				printf("header size: %d\n", hd_size);	
 				buf[hd_size] = 0;

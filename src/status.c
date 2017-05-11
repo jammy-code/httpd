@@ -1,4 +1,9 @@
 
+#include "connection.h"
+
+const char *getStatusDesc(int code)
+{
+	char *res;
       switch(code) {
       case 100: res = "Continue";
           break;
@@ -91,3 +96,5 @@
       } // switch
 
       return res;
+
+}
