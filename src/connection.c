@@ -64,8 +64,9 @@ void free_connection(struct connection *conn)
 void del_connfd(struct httpd *phttpd, int socket_fd)
 {
 	int i, j;
-printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
+printf("%s %d: %s() del %d\n", __FILE__, __LINE__, __func__, socket_fd);
 	for (i=phttpd->conn_sum-1; i>=0; i--){
+printf("%s %d: %s() %d == %d?\n", __FILE__, __LINE__, __func__, phttpd->conns[i]->socket_fd, socket_fd);
 		if (phttpd->conns[i]->socket_fd == socket_fd){
 printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 			free_connection(phttpd->conns[i]);
@@ -99,6 +100,23 @@ printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 		}
 	}
 	return NULL;
+}
+void clear_request(struct connection* conn)
+{
+	if (!conn) return;
+	
+	if (conn->filepath){
+		free(conn->filepath);
+		conn->filepath = NULL;
+	}
+	if (conn->url){
+		free(conn->url);
+		conn->url = NULL;
+	}
+	if (conn->url){
+		free(conn->url);
+		conn->url = NULL;
+	}
 }
 
 int parse_header(struct connection* conn, const char *buff, int len)
