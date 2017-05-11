@@ -173,6 +173,7 @@ printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 		strncpy(path, conn->server->conf->homedir, sizeof(path)-1);
 		strncat(path, url, sizeof(path)-strlen(path)-1);
 		strncat(path, DEFAULT_FILE, sizeof(path)-strlen(path)-1);
+		conn->filepath = strdup(path);
 		return state;
 	}
 	else {
