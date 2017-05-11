@@ -168,17 +168,13 @@ int check_responder(struct connection* conn)
 	
 	
 printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
+	path[sizeof(path)-1] = '\0';
+	strncpy(path, conn->server->conf->homedir, sizeof(path)-1);
+	strncat(path, url, sizeof(path)-strlen(path)-1);
 	if (url[strlen(url)-1] == '/'){
-		path[sizeof(path)-1] = '\0';
-		strncpy(path, conn->server->conf->homedir, sizeof(path)-1);
-		strncat(path, url, sizeof(path)-strlen(path)-1);
 		strncat(path, DEFAULT_FILE, sizeof(path)-strlen(path)-1);
-		conn->filepath = strdup(path);
-		return state;
 	}
-	else {
-		//if 
-	}
+	conn->filepath = strdup(path);
 	return state;
 }
 
