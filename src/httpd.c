@@ -321,8 +321,8 @@ static void epool_triger(struct epoll_event* events, int num, int epollfd, struc
         }  
         else if ( events[i].events & EPOLLIN )  
         {  
-            printf( "event trigger once\n" );  //recv data
-		accept_request(phttpd, sockfd);
+            printf( "event trigger once %d\n", events[i].data.fd );  //recv data
+		accept_request(phttpd, events[i].data.fd);
 
         }
         else {
