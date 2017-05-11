@@ -23,7 +23,7 @@ struct connection * add_connection(struct httpd *phttpd, int socket_fd)
 		if (phttpd->conn_sum == 0){
 			phttpd->conns[0] = conn;
 			phttpd->conn_sum = 1;
-		printf("%s %d: %s() index0=\n", __FILE__, __LINE__, __func__);
+		printf("%s %d: %s() index=0\n", __FILE__, __LINE__, __func__);
 			return conn;
 		}
 		for (i=phttpd->conn_sum-1; i>=0; i--){
@@ -68,11 +68,10 @@ void free_connection(struct connection *conn)
 void del_connfd(struct httpd *phttpd, int socket_fd)
 {
 	int i, j;
-printf("%s %d: %s() del %d\n", __FILE__, __LINE__, __func__, socket_fd);
+printf("%s %d: %s() del %d httpd@%08x\n", __FILE__, __LINE__, __func__, socket_fd, phttpd);
 	for (i=phttpd->conn_sum-1; i>=0; i--){
-printf("%s %d: %s() %d == %d?\n", __FILE__, __LINE__, __func__, phttpd->conns[i]->socket_fd, socket_fd);
 		if (phttpd->conns[i]->socket_fd == socket_fd){
-printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
+printf("%s %d: %s() del index %d\n", __FILE__, __LINE__, __func__, i);
 			free_connection(phttpd->conns[i]);
 			for (j=i+1; j<=phttpd->conn_sum-1; j++,i++){
 				phttpd->conns[i]= phttpd->conns[j];
@@ -88,16 +87,11 @@ struct connection* get_connection(struct httpd *phttpd, int socket)
 	//使用二分法查找
 	int low=0;
 	int high=phttpd->conn_sum-1;
-printf("%s %d: %s() find %d, count:%d%d\n", __FILE__, __LINE__, __func__, socket, phttpd->conn_sum);
-	for(low = 0; low<=high; low++){
-		printf("%d:%d\n", low, phttpd->conns[low]->socket_fd);
-	}
-	low=0;
 	while(low<=high){
 		int mid=low+((high-low)>>1);
 printf("%s %d: %s()low=%d mid=%d high=%d fd=%d\n", __FILE__, __LINE__, __func__, low, mid, high, phttpd->conns[mid]->socket_fd);
 		if (socket == phttpd->conns[mid]->socket_fd){
-printf("%s %d: %s() found!\n", __FILE__, __LINE__, __func__);
+printf("%s %d: %s() found %d at d!\n", __FILE__, __LINE__, __func__, socket, mid);
 			return phttpd->conns[mid];
 		}
 		else if (socket < phttpd->conns[mid]->socket_fd){
@@ -134,7 +128,6 @@ int parse_header(struct connection* conn, const char *buff, int len)
 	char *p = buff;
 	int pos = 0;
 	
-printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	while(*p > ' ' && pos<sizeof(value)-1 && p<buff+len){
 		value[pos] = *p;
 		p++;
@@ -156,7 +149,6 @@ printf("%s %d: %s() method: %s\n", __FILE__, __LINE__, __func__, value);
 		return conn->state;
 	}
 	
-printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	while(*p <=' ' && p <buff+len) p++;
 	pos = 0;
 	while (*p > ' ' && pos<sizeof(value)-1 && p<buff+len){
@@ -168,7 +160,6 @@ printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 printf("%s %d: %s() url: %s\n", __FILE__, __LINE__, __func__, value);
 	conn->url = strdup(value);
 	
-printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	while(*p <=' ' && p <buff+len) p++;
 	if (strncmp(p, HTTP_VERSION_1_0_STR, strlen(HTTP_VERSION_1_0_STR))==0){
 		p += strlen(HTTP_VERSION_1_0_STR);
@@ -179,7 +170,6 @@ printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	p+=2; //\r\n
 	//parse other...
 	
-printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	return state;	
 }
 
