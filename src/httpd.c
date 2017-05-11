@@ -130,6 +130,7 @@ void send_file(int client, const char *filename)
 	int numchars = 1;
 	char buf[1024];
 
+printf("%s %d: %s() send %s\n", __FILE__, __LINE__, __func__, filename);
 	fp = fopen(filename, "r");
 	if (fp) {
 		headers(client, filename);
@@ -228,6 +229,8 @@ int get_line(int sock, char *buf, int size)
 int http_response(struct connection* conn)
 {
 	int state = 0;
+	
+printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	switch(conn->state){
 		case STATE_NOTFOUND:
 			not_found(conn->socket_fd);
