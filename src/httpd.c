@@ -250,7 +250,8 @@ printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 		default:
 			bad_request(conn->socket_fd);
 			
-	}	
+	}
+	clear_request(conn);
 	return state;
 }
 
