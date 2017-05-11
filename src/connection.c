@@ -109,7 +109,7 @@ int parse_header(struct connection* conn, const char *buff, int len)
 	int pos = 0;
 	
 printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
-	while(*p > ' ' && pos<sizeof(value)-1){
+	while(*p > ' ' && pos<sizeof(value)-1 && p<buff+len){
 		value[pos] = *p;
 		p++;
 		pos++;
@@ -136,7 +136,7 @@ printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	while (*p > ' ' && pos<sizeof(value)-1 && p<buff+len){
 		value[pos] = *p;
 		p++;
-		len++;
+		pos++;
 	}
 	value[pos] = '\0';
 printf("%s %d: %s() url: %s\n", __FILE__, __LINE__, __func__, value);
