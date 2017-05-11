@@ -114,6 +114,7 @@ printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 		pos++;
 	}
 	value[pos] = '\0';
+printf("%s %d: %s() method: %s\n", __FILE__, __LINE__, __func__, value);
 	if (strcmp(value, HTTP_METHOD_GET_STR)==0){
 		conn->method = HTTP_METHOD_GET;
 	}
@@ -137,6 +138,7 @@ printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 		len++;
 	}
 	value[pos] = '\0';
+printf("%s %d: %s() url: %s\n", __FILE__, __LINE__, __func__, value);
 	conn->url = strdup(value);
 	
 printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
