@@ -16,6 +16,7 @@ struct connection * add_connection(struct httpd *phttpd, int socket_fd)
 	conn = (struct connection *)malloc(sizeof(struct connection));
 	if (conn){
 		int i;
+		printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 		memset(conn, 0, sizeof(struct connection));
 		conn->socket_fd = socket_fd;
 		conn->server = phttpd;
@@ -63,8 +64,10 @@ void free_connection(struct connection *conn)
 void del_connfd(struct httpd *phttpd, int socket_fd)
 {
 	int i, j;
+printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	for (i=phttpd->conn_sum-1; i>=0; i--){
 		if (phttpd->conns[i]->socket_fd == socket_fd){
+printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 			free_connection(phttpd->conns[i]);
 			for (j=i+1; j<=phttpd->conn_sum-1; j++,i++){
 				phttpd->conns[i]= phttpd->conns[j];
@@ -80,9 +83,11 @@ struct connection* get_connection(struct httpd *phttpd, int socket)
 	//使用二分法查找
 	int low=0;
 	int high=phttpd->conn_sum-1;
+printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	while(low<=high){
 		int mid=low+((high-low)>>1);
 		if (socket == phttpd->conns[mid]->socket_fd){
+printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 			return phttpd->conns[mid];
 		}
 		else if (socket < phttpd->conns[mid]->socket_fd){
@@ -101,6 +106,8 @@ int parse_header(struct connection* conn, const char *buff, int len)
 	char value[256]; 
 	char *p = buff;
 	int pos = 0;
+	
+printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	while(*p > ' ' && pos<sizeof(value)-1){
 		value[pos] = *p;
 		p++;
@@ -121,6 +128,7 @@ int parse_header(struct connection* conn, const char *buff, int len)
 		return conn->state;
 	}
 	
+printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	while(*p <=' ' && p <buff+len) p++;
 	pos = 0;
 	while (*p > ' ' && pos<sizeof(value)-1 && p<buff+len){
@@ -131,6 +139,7 @@ int parse_header(struct connection* conn, const char *buff, int len)
 	value[pos] = '\0';
 	conn->url = strdup(value);
 	
+printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	while(*p <=' ' && p <buff+len) p++;
 	if (strncmp(p, HTTP_VERSION_1_0_STR, strlen(HTTP_VERSION_1_0_STR))==0){
 		p += strlen(HTTP_VERSION_1_0_STR);
@@ -141,6 +150,7 @@ int parse_header(struct connection* conn, const char *buff, int len)
 	p+=2; //\r\n
 	//parse other...
 	
+printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	return state;	
 }
 
@@ -154,6 +164,7 @@ int check_responder(struct connection* conn)
 		return conn->state;
 	
 	
+printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	if (url[strlen(url)-1] == '/'){
 		path[sizeof(path)-1] = '\0';
 		strncpy(path, conn->server->conf->homedir, sizeof(path)-1);
