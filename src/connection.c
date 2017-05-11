@@ -37,6 +37,7 @@ struct connection * add_connection(struct httpd *phttpd, int socket_fd)
 			else {
 				phttpd->conns[i+1]= conn;
 		printf("%s %d: %s() index=%d\n", __FILE__, __LINE__, __func__, i+1);
+				break;
 			}
 		}
 		phttpd->conn_sum += 1;
