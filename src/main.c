@@ -57,6 +57,9 @@ int main(int argc, char **argv)
 	
 	if (argc > 1)
 		proc_opt(argc, argv);
+	
+	if (hconf.homedir == NULL)
+		hconf.homedir == strdup("/www-root");
 
 	phttpd = create_httpd(&hconf);
 	printf("%s %d\n", __func__, __LINE__);
