@@ -88,7 +88,7 @@ struct connection* get_connection(struct httpd *phttpd, int socket)
 	int low=0;
 	int high=phttpd->conn_sum-1;
 printf("%s %d: %s() find %d, count:%d%d\n", __FILE__, __LINE__, __func__, socket, phttpd->conn_sum);
-	for(low = 0; low=<high; low++){
+	for(low = 0; low<=high; low++){
 		printf("%d:%d\n", low, phttpd->conns[low]->socket_fd);
 	}
 	low=0;
