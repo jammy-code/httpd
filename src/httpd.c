@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <sys/epoll.h>
 #include <fcntl.h>
+#include <netdb.h>
 
 #include <errno.h>
 
@@ -71,24 +72,24 @@ void bad_request(int client)
 
 void unimplemented(int client)
 {
- char buf[1024];
+	 char buf[1024];
 
- sprintf(buf, "HTTP/1.0 501 Method Not Implemented\r\n");
- send(client, buf, strlen(buf), 0);
- sprintf(buf, SERVER_STRING);
- send(client, buf, strlen(buf), 0);
- sprintf(buf, "Content-Type: text/html\r\n");
- send(client, buf, strlen(buf), 0);
- sprintf(buf, "\r\n");
- send(client, buf, strlen(buf), 0);
- sprintf(buf, "<HTML><HEAD><TITLE>Method Not Implemented\r\n");
- send(client, buf, strlen(buf), 0);
- sprintf(buf, "</TITLE></HEAD>\r\n");
- send(client, buf, strlen(buf), 0);
- sprintf(buf, "<BODY><P>HTTP request method not supported.\r\n");
- send(client, buf, strlen(buf), 0);
- sprintf(buf, "</BODY></HTML>\r\n");
- send(client, buf, strlen(buf), 0);
+	 sprintf(buf, "HTTP/1.0 501 Method Not Implemented\r\n");
+	 send(client, buf, strlen(buf), 0);
+	 sprintf(buf, SERVER_STRING);
+	 send(client, buf, strlen(buf), 0);
+	 sprintf(buf, "Content-Type: text/html\r\n");
+	 send(client, buf, strlen(buf), 0);
+	 sprintf(buf, "\r\n");
+	 send(client, buf, strlen(buf), 0);
+	 sprintf(buf, "<HTML><HEAD><TITLE>Method Not Implemented\r\n");
+	 send(client, buf, strlen(buf), 0);
+	 sprintf(buf, "</TITLE></HEAD>\r\n");
+	 send(client, buf, strlen(buf), 0);
+	 sprintf(buf, "<BODY><P>HTTP request method not supported.\r\n");
+	 send(client, buf, strlen(buf), 0);
+	 sprintf(buf, "</BODY></HTML>\r\n");
+	 send(client, buf, strlen(buf), 0);
 }
 
 void not_found(int client)
@@ -182,18 +183,6 @@ printf("%s %d: %s() send %s\n", __FILE__, __LINE__, __func__, filename);
 
 
 
-static void epoll_addfd(epollfd, fd)
-{
-	struct epoll_event event;
-	int flags;
-	event.data.fd = fd;
-	event.events = EPOLLIN | EPOLLET;
-	epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &event);
-
-	flags = fcntl(fd, F_GETFL);
-	if (-1 != flags)
-		fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-}
 
 int get_line(int sock, char *buf, int size)
 {
@@ -265,7 +254,7 @@ void accept_request(struct httpd *phttpd, int sockfd)
 	while(1){
 		memset( buf, '\0', BUFFER_SIZE );  
 		//int ret = recv(sockfd, buf, BUFFER_SIZE-1, 0);  
-		int ret = recv(sockfd, buf, BUFFER_SIZE-1, MSG_PEEK);
+		int ret = recv(sockfd, buf, BUFFER_SIZE-1, MSG_PEEK);// MSG_PEEK 查看数据,并不从系统缓冲区移走数据
 		if( ret < 0 ) {  
 			/*下面if条件成立，则读缓冲区数据已经读取完成*/ 
 			if( ( errno == EAGAIN ) || ( errno == EWOULDBLOCK )) {
@@ -302,40 +291,76 @@ void accept_request(struct httpd *phttpd, int sockfd)
 	}
 }
 
+int epoll_write(int fd, unsigned char *buff, int len)
+{
+	int slen = 0;
 
+	do {
+		int wcnt = write(fd, buff+ slen, len-slen);
+		if (wcnt > 0)
+			break;
+	}while(0);
+
+	return slen;
+}
+
+#if 0
 static void epool_triger(struct epoll_event* events, int num, int epollfd, struct httpd *phttpd)  
 {
 #define BUFFER_SIZE 1024
 	int i;
-    char buf[BUFFER_SIZE];  
+	char buf[BUFFER_SIZE];  
 	int listenfd = phttpd->socket;
-    for (i = 0; i < num; i++ )  
-    {  
-        int sockfd;
+	for (i = 0; i < num; i++ ) {  
+		int sockfd = events[i].data.fd;
+		if ((events[i].events & EPOLLERR) ||
+			(events[i].events & EPOLLHUP) ||
+			(!(events[i].events & EPOLLIN)))
+		{
+			/* An error has occured on this fd, or the socket is not
+			ready for reading (why were we notified then?) */
+			fprintf (stderr, "epoll error\n");
+			del_connfd(phttpd, sockfd);
+			continue;
+		}
+		if (NULL == events[i].data.ptr){
+			fprintf (stderr, "shutdown??????\n");
+			continue;	//shutdown signal
+		}
 
-	if (NULL == events[i].data.ptr)
-		continue;	//shutdown signal
+		if ( sockfd == listenfd ){  //new connetion
+			struct sockaddr_in client_addr;  
+			socklen_t addrlength = sizeof(client_addr);  
+			int connfd = accept(listenfd, (struct sockaddr*)&client_addr, &addrlength);
+			epoll_addfd(epollfd, connfd);
+			add_connection(phttpd, connfd);
+		}  
+		else if ( events[i].events & EPOLLIN )  
+		{  
+			printf( "event trigger once %d\n", events[i].data.fd );  //recv data
+			accept_request(phttpd, events[i].data.fd);
+		}
+		else {
+			printf( "something else happened \n" );
+		}
+	}
+}
+#endif
 
-	sockfd = events[i].data.fd;
-        if ( sockfd == listenfd )  //new connetion
-        {  
-            struct sockaddr_in client_address;  
-            socklen_t client_addrlength = sizeof(client_address);  
-            int connfd = accept(listenfd, (struct sockaddr*)&client_address, &client_addrlength);
-            epoll_addfd(epollfd, connfd);
-		add_connection(phttpd, connfd);
-        }  
-        else if ( events[i].events & EPOLLIN )  
-        {  
-            printf( "event trigger once %d\n", events[i].data.fd );  //recv data
-		accept_request(phttpd, events[i].data.fd);
+static void epoll_addfd(epollfd, fd)
+{
+	struct epoll_event event;
+	int flags;
 
-        }
-        else {
-            printf( "something else happened \n" );  
-        }  
-    }  
-}  
+	flags = fcntl(fd, F_GETFL);
+	if (-1 != flags)
+		fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+	event.data.fd = fd;
+	event.events = EPOLLIN | EPOLLET;
+	epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &event);
+
+}
 
 int epoll_run(struct httpd* phttpd)
 {
@@ -350,25 +375,123 @@ int epoll_run(struct httpd* phttpd)
 	flags = fcntl (epfd, F_GETFD);
 	if (-1 != flags)
 		fcntl(epfd, F_SETFD, flags | FD_CLOEXEC);
-#endif	
-/*
-	flags = fcntl (epfd, F_GETFL);
-	if (-1 != flags)
-		fcntl(epfd, F_SETFL, flags | O_NONBLOCK);
-				
-	event.events = EPOLLIN | EPOLLET;
-	event.data.fd = phttpd->socket;
-	epoll_ctl (epfd, EPOLL_CTL_ADD, phttpd->socket, &event);*/
+#endif
 	epoll_addfd(epfd, phttpd->socket);
 
 	while(1){
+		int i;
 		int ret = epoll_wait( epfd, events, MAX_EVENT, -1 );
 		if ( ret < 0 ){
 			printf( "epoll failure\n" );
 			break;
 		}
-		epool_triger( events, ret, epfd, phttpd);
+		for (i = 0; i < ret; i++){
+			int eventfd = events[i].data.fd;
+			if ((events[i].events & EPOLLERR) ||
+				(events[i].events & EPOLLHUP) ||
+				(!(events[i].events & EPOLLIN))){
+				/* An error has occured on this fd, or the socket is not
+				 ready for reading (why were we notified then?) */
+				fprintf (stderr, "epoll error\n");
+				//close (eventfd);
+				del_connfd(phttpd, eventfd);
+				continue;
+			}
+			else if (phttpd->socket == eventfd){
+				/* We have a notification on the listening socket, which
+				means one or more incoming connections. */
+				while (1){
+					struct sockaddr in_addr;
+					socklen_t in_len;
+					int infd, s;
+					char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
+
+					in_len = sizeof in_addr;
+					infd = accept (phttpd->socket, &in_addr, &in_len);
+					if (infd == -1){
+						if ((errno == EAGAIN) || (errno == EWOULDBLOCK)){
+							/* We have processed all incoming
+							connections. */
+							break;
+						}
+						else {
+							perror ("accept");
+							break;
+						}
+					}
+
+					s = getnameinfo (&in_addr, in_len,
+							hbuf, sizeof hbuf,
+							sbuf, sizeof sbuf,
+							NI_NUMERICHOST | NI_NUMERICSERV);
+					if (s == 0) {
+					printf("Accepted connection on descriptor %d "
+					     "(host=%s, port=%s)\n", infd, hbuf, sbuf);
+					}
+					/* Make the incoming socket non-blocking and add it to the list of fds to monitor. */
+					epoll_addfd(epfd, infd);
+					add_connection(phttpd, infd);
+				}
+				continue;
+			}
+			else if (events[i].events & EPOLLIN) {
+				/* We have data on the fd waiting to be read. Read and
+				 display it. We must read whatever data is available
+				 completely, as we are running in edge-triggered mode
+				 and won't get a notification again for the same
+				 data. */
+				while (1) {
+					ssize_t count;
+					char buf[512];
+					//int done = 0;
+
+					//count = read (eventfd, buf, sizeof buf);
+					count = recv(eventfd, buf, sizeof(buf), MSG_PEEK);// MSG_PEEK 查看数据,并不从系统缓冲区移走数据
+					if (count == -1) {
+						/* If errno == EAGAIN, that means we have read all
+						 data. So go back to the main loop. */
+						if (errno != EAGAIN) {
+							perror ("read");
+							//done = 1;
+							del_connfd(phttpd, eventfd);
+						}
+						break;
+					}
+					else if (count == 0) {
+						/* End of file. The remote has closed the
+						 connection. */
+						printf ("Closed connection on descriptor %d\n",	eventfd);
+						/* Closing the descriptor will make epoll remove it
+						from the set of descriptors which are monitored. */
+						//close (eventfd);
+						del_connfd(phttpd, eventfd);
+						break;
+					}
+					else {
+						char *p = strstr(buf, "\r\n\r\n");
+						if (p){
+							struct connection* conn = get_connection(phttpd, eventfd);
+							if (conn){
+								int hd_size = 4 +  (p - buf);
+								printf("header size: %d\n", hd_size);	
+								buf[hd_size] = 0;
+								recv(eventfd, buf, hd_size, 0);
+								parse_header(conn, buf, hd_size);
+								check_responder(conn);
+								http_response(conn);
+							}
+						}
+					}
+				}
+			}
+			else {
+				printf( "something else happened \n" );
+			}
+
+                }
+		//epool_triger( events, ret, epfd, phttpd);
 	}
+	close(epfd);
 }
 
 
