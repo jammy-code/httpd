@@ -68,15 +68,16 @@ void free_connection(struct connection *conn)
 void del_connfd(struct httpd *phttpd, int socket_fd)
 {
 	int i, j;
-printf("%s %d: %s() del %d httpd@%08x\n", __FILE__, __LINE__, __func__, socket_fd, phttpd);
 	for (i=phttpd->conn_sum-1; i>=0; i--){
 		if (phttpd->conns[i]->socket_fd == socket_fd){
-printf("%s %d: %s() del index %d\n", __FILE__, __LINE__, __func__, i);
+printf("%s %d: %s() del connect idx=%d fd=%d\n", __FILE__, __LINE__, __func__, i, socket_fd);
+			close(socket_fd);
 			free_connection(phttpd->conns[i]);
 			for (j=i+1; j<=phttpd->conn_sum-1; j++,i++){
 				phttpd->conns[i]= phttpd->conns[j];
 				 phttpd->conns[j] = NULL;
 			}
+			phttpd->conn_sum--;
 			break;
 		}
 	}
@@ -89,9 +90,9 @@ struct connection* get_connection(struct httpd *phttpd, int socket)
 	int high=phttpd->conn_sum-1;
 	while(low<=high){
 		int mid=low+((high-low)>>1);
-printf("%s %d: %s()low=%d mid=%d high=%d fd=%d\n", __FILE__, __LINE__, __func__, low, mid, high, phttpd->conns[mid]->socket_fd);
+//printf("%s %d: %s()low=%d mid=%d high=%d fd=%d\n", __FILE__, __LINE__, __func__, low, mid, high, phttpd->conns[mid]->socket_fd);
 		if (socket == phttpd->conns[mid]->socket_fd){
-printf("%s %d: %s() found %d at d!\n", __FILE__, __LINE__, __func__, socket, mid);
+//printf("%s %d: %s() found %d at d!\n", __FILE__, __LINE__, __func__, socket, mid);
 			return phttpd->conns[mid];
 		}
 		else if (socket < phttpd->conns[mid]->socket_fd){

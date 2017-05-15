@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -110,12 +111,15 @@ void not_found(int client)
 
 void headers(int client, const char *filename)
 {
-	char buf[1024];
+	char buf[512];
+	struct stat sb;
 	//(void)filename;  /* could use filename to determine file type */
-
-	strcpy(buf, "HTTP/1.0 200 OK\r\n");
+	stat(filename, &sb);
+	strcpy(buf, "HTTP/1.1 200 OK\r\n");
 	send(client, buf, strlen(buf), 0);
 	strcpy(buf, SERVER_STRING);
+	send(client, buf, strlen(buf), 0);
+	sprintf(buf, "Content-Lenght: %d\r\n", sb.st_size);
 	send(client, buf, strlen(buf), 0);
 	sprintf(buf, "Content-Type: text/html\r\n\r\n");//case file type
 	send(client, buf, strlen(buf), 0);
@@ -284,6 +288,9 @@ void accept_request(struct httpd *phttpd, int sockfd)
 					parse_header(conn, buf, hd_size);
 					check_responder(conn);
 					http_response(conn);
+					//keep alive????
+					close(sockfd);
+					del_connfd(phttpd, sockfd);
 				}
 			}
 			//printf("get %d bytes of content: %s\n", ret, buf);  
@@ -451,7 +458,7 @@ int epoll_run(struct httpd* phttpd)
 						/* If errno == EAGAIN, that means we have read all
 						 data. So go back to the main loop. */
 						if (errno != EAGAIN) {
-							perror ("read");
+							perror ("recv error");
 							//done = 1;
 							del_connfd(phttpd, eventfd);
 						}
@@ -479,6 +486,7 @@ int epoll_run(struct httpd* phttpd)
 								parse_header(conn, buf, hd_size);
 								check_responder(conn);
 								http_response(conn);
+								del_connfd(phttpd, eventfd);
 							}
 						}
 					}
