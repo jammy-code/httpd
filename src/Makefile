@@ -7,7 +7,7 @@ BIN:= httpd
 
 #OBJDIR:=$(PWD)
 OBJDIR:=$(CURDIR)
-SRCDIR:=$(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+SRCDIR:=$(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 SRCS=$(wildcard $(SRCDIR)/*.c)
 OBJS=$(patsubst $(SRCDIR)/%,$(OBJDIR)/%,$(SRCS:.c=.o))
