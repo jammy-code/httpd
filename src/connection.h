@@ -44,7 +44,8 @@ struct connection {
 	char *hdr_content_type;	//application/x-www-form-urlencoded
 	int hdr_content_len;
 	unsigned char *postdata;
-	int content_lenght;
+	struct key_value_node *post_arguments;
+	int content_length;
 	int content_type;
 	char *content;
 
@@ -56,7 +57,7 @@ const char *getStatusDesc(int code);
 int parseHeader(struct connection *conn);
 int getContentLenght(struct connection *conn);
 
-char *http_get_querystring(struct connection *conn);
+char *lookup_querystring(struct connection *conn, const char *name);
 
 #endif
 

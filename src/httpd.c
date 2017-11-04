@@ -34,6 +34,33 @@ void error_die(const char *sc)
 	exit(1);
 }
 
+const char *get_datetime_string()
+{
+	const char *ret=NULL;
+	static const char str_datetime[32];
+	static const char *const days[]={
+		"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+	static const char *const mons[] ={
+		"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+		"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+	struct tm now, *pNow;
+	time_t t;
+
+	time(&t);
+	pNow = gmtime(&t);
+	if (NULL == pNow)
+		return ret;
+	now = *pNow;
+	snprintf(str_datetime, sizeof(str_datetime), "%3s, %02u %3s %04u %02u:%02u:%02u GMT",
+			days[now.tm_wday % 7], (unsigned int)now.tm_mday,
+			mons[now.tm_mon % 12], (unsigned int)((1900+now.tm_year)%10000),
+			(unsigned int) now.tm_hour, (unsigned int) now.tm_min,
+			(unsigned int) now.tm_sec);
+	ret = str_datetime;
+printf("Date: %s\n", str_datetime);
+	return ret;
+}
+
 
 struct httpd *create_httpd(struct httpd_conf *hconf)
 {
@@ -72,7 +99,7 @@ void bad_request(int client)
 {
 	char buf[256];
 
-	sprintf(buf, "HTTP/1.0 400 BAD REQUEST\r\n");
+	sprintf(buf, "HTTP/1.1 400 BAD REQUEST\r\n");
 	send(client, buf, sizeof(buf), 0);
 	sprintf(buf, "Server: %s\r\n", SERVER_STRING);
 	send(client, buf, strlen(buf), 0);
@@ -86,7 +113,7 @@ void unimplemented(int client)
 {
 	 char buf[1024];
 
-	sprintf(buf, "HTTP/1.0 501 Method Not Implemented\r\n");
+	sprintf(buf, "HTTP/1.1 501 Method Not Implemented\r\n");
 	send(client, buf, strlen(buf), 0);
 	sprintf(buf, "Server: %s\r\n", SERVER_STRING);
 	send(client, buf, strlen(buf), 0);
@@ -106,17 +133,11 @@ void unimplemented(int client)
 
 void not_found(int client)
 {
-	char buf[256];
+	char buf[512];
+#define HTML_NOT_FOUND "<HTML><TITLE>Not Found</TITLE><BODY><P>The server could not fulfill your request because the resource specified is unavailable or nonexistent.</P></BODY></HTML>\r\n"
 
-	sprintf(buf, "HTTP/1.0 404 NOT FOUND\r\n");
-	send(client, buf, strlen(buf), 0);
-	sprintf(buf, "Server: %s\r\n", SERVER_STRING);
-	send(client, buf, strlen(buf), 0);
-	sprintf(buf, "Content-Type: text/html\r\n");
-	send(client, buf, strlen(buf), 0);
-	sprintf(buf, "\r\n");
-	send(client, buf, strlen(buf), 0);
-	sprintf(buf, "<HTML><TITLE>Not Found</TITLE><BODY><P>The server could not fulfill your request because the resource specified is unavailable or nonexistent.</P></BODY></HTML>\r\n");
+	snprintf(buf, sizeof(buf), "HTTP/1.1 404 NOT FOUND\r\nContent-Type: text/html\r\n"
+			"Content-Length: %d\r\nConnection: close\r\nDate: %s\r\nServer: %s\r\n\r\n%s", strlen(HTML_NOT_FOUND), get_datetime_string(), SERVER_STRING, HTML_NOT_FOUND);
 	send(client, buf, strlen(buf), 0);
 }
 
@@ -130,7 +151,7 @@ void headers(int client, const char *filename)
 	send(client, buf, strlen(buf), 0);
 	sprintf(buf, "Server: %s\r\n", SERVER_STRING);
 	send(client, buf, strlen(buf), 0);
-	sprintf(buf, "Content-Lenght: %d\r\n", sb.st_size);
+	sprintf(buf, "Content-Length: %d\r\n", sb.st_size);
 	send(client, buf, strlen(buf), 0);
 	sprintf(buf, "Content-Type: text/html\r\n\r\n");//case file type
 	send(client, buf, strlen(buf), 0);
@@ -289,14 +310,18 @@ int response_buffer(struct connection *conn)
 {
 	int state = 0;
 	char buff[512];
+printf("%s %d: %s() content-type:%d\n", __FILE__, __LINE__, __func__, conn->content_type);
 	snprintf(buff, 512, "HTTP/1.1 200 OK\r\nServer: %s\r\nContent-Type: %s\r\n", SERVER_STRING, mimeTypes[conn->content_type]);
-	if (conn->content_lenght){
+printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
+	if (conn->content_length){
 		int ll = strlen(buff);
-		snprintf(buff+ll, 512-ll, "Content-Lenght: %d\r\n", conn->content_lenght);
+		snprintf(buff+ll, 512-ll, "Content-Length: %d\r\n", conn->content_length);
 	}
+printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	strcat(buff, "\r\n");
 	send(conn->socket_fd, buff, strlen(buff), 0);
 	send(conn->socket_fd, conn->content, strlen(conn->content),0);	
+printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	return state;
 }
 
@@ -317,8 +342,9 @@ printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 			if (conn->filepath){
 				send_file(conn->socket_fd, conn->filepath);
 			}
-			else
+			else{
 				response_buffer(conn);
+			}
 			break;
 		case STATE_REQERR:
 		default:
@@ -495,8 +521,10 @@ int epoll_run(struct httpd* phttpd)
 				printf("epoll events:%08x, error no:%d\r\n", evt, errno);
 				if (events[i].events & EPOLLIN) {
 					while(1) {
+						struct sockaddr in_addr;
 						socklen_t in_len;
 						int infd, s;
+						char hbuf[NI_MAXHOST], sbuf[NI_MAXHOST];
 
 						in_len = sizeof in_addr;
 						infd = accept (phttpd->socket, &in_addr, &in_len);
@@ -549,7 +577,7 @@ int epoll_run(struct httpd* phttpd)
 						 data. So go back to the main loop. */
 						perror ("recv error");
 						if ( EAGAIN==errno || EINTR==errno ) {
-							printf("error no: %d\n", errno);
+							printf("socket %d error no: %d\n", eventfd, errno);
 						}
 						else {
 							//done = 1;
@@ -564,6 +592,7 @@ int epoll_run(struct httpd* phttpd)
 						/* End of file. The remote has closed the
 						 connection. */
 						printf ("Closed connection on descriptor %d\n",	eventfd);
+						epoll_delfd(epfd, eventfd);
 						/* Closing the descriptor will make epoll remove it
 						from the set of descriptors which are monitored. */
 						//close (eventfd);

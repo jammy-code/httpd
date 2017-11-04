@@ -67,7 +67,8 @@ int account_handle(struct connection *conn)
 		size = 512;
 		snprintf(content, 512, "{result:0}");
 		len = strlen(content);
-		conn->content_lenght = len;
+		conn->content_type = MIME_TYPE_JSON; 
+		conn->content_length = len;
 		conn->content = content;
 		state = 200;
 	}
@@ -82,7 +83,8 @@ printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	//	if (conn->method == HTTP_METHOD_POST){
 		snprintf(content, 512, "{result:%s}", action);
 		len = strlen(content);
-		conn->content_lenght = len;
+		conn->content_type = MIME_TYPE_JSON; 
+		conn->content_length = len;
 		conn->content = content;
 		state = 200;
 	//	}
