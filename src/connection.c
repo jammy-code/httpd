@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "httpd.h"
 #include "connection.h"
@@ -49,6 +50,8 @@ void free_connection(struct connection *conn)
 	close(conn->socket_fd);
 	if (conn->url) free(conn->url);
 	if (conn->filepath) free(conn->filepath);
+
+	if (conn->content) free(conn->content);
 	/*char *hdr_accept;//text/plain
 	char *hdr_acpt_charset;	//utf-8
 	char *hdr_encoding;	//gzip, deflate
@@ -122,10 +125,74 @@ void clear_request(struct connection* conn)
 	}
 }
 
+void del_key_value(struct key_value_node *node)
+{
+	struct key_value_node *next;
+
+	while (node){
+		if (node->keyname) free(node->keyname);
+		if (node->value) free(node->value);
+		next = node->next;
+		free(node);
+		node = next;
+	}
+}
+
+int add_key_value(struct key_value_node **pheader, const char *name, const char *value)
+{
+	int state = -1;
+
+	if (name && *name){
+		struct key_value_node *node = (struct key_value_node *)malloc(sizeof(struct key_value_node));
+		if (node){
+			memset(node, 0, sizeof(struct key_value_node));
+			node->keyname = strdup(name);
+			node->value = strdup(value);
+			if (NULL != *pheader){
+				struct key_value_node *prev = *pheader;
+				while (prev->next) prev=prev->next;
+				prev->next = node;
+				state = 0;
+			}
+			else {
+				*pheader = node;
+				state = 0;
+			}
+		} 
+	}
+	return state;
+}
+
+int parse_querystring(struct connection *conn, const char *buff, int len)
+{
+	int state = -1;
+	char *args = buff;
+	if (NULL == conn || NULL == buff) return state;
+	
+	while (*args != '\0' && args < buff+len){
+		char *equ = strchr(args, '=');
+		char *amp = strchr(args, '&');
+		if (amp != NULL){
+			*amp = '\0';
+			amp++;
+		}
+		*equ = '\0';
+		equ++;
+		if(0 == add_key_value(&conn->query_arguments, args, equ)){
+			conn->query_count++;
+		}
+		if (amp){
+			args = amp;
+			continue;
+		}
+		break;	
+	}
+}
+
 int parse_header(struct connection* conn, const char *buff, int len)
 {
 	int state = 0;
-	char value[256]; 
+	char value[512]; 
 	char *p = buff;
 	int pos = 0;
 	
@@ -152,7 +219,7 @@ printf("%s %d: %s() method: %s\n", __FILE__, __LINE__, __func__, value);
 	
 	while(*p <=' ' && p <buff+len) p++;
 	pos = 0;
-	while (*p > ' ' && pos<sizeof(value)-1 && p<buff+len){
+	while (*p > ' ' && *p != '?' && pos<sizeof(value)-1 && p<buff+len){
 		value[pos] = *p;
 		p++;
 		pos++;
@@ -160,6 +227,18 @@ printf("%s %d: %s() method: %s\n", __FILE__, __LINE__, __func__, value);
 	value[pos] = '\0';
 printf("%s %d: %s() url: %s\n", __FILE__, __LINE__, __func__, value);
 	conn->url = strdup(value);
+	
+	if (*p == '?'){
+		p++;
+		pos=0;
+		while (*p > ' ' && pos<sizeof(value)-1 && p<buff+len){
+			value[pos] = *p;
+			p++;
+			pos++;
+		}
+		value[pos] = '\0';
+		parse_querystring(conn, value, pos);
+	}
 	
 	while(*p <=' ' && p <buff+len) p++;
 	if (strncmp(p, HTTP_VERSION_1_0_STR, strlen(HTTP_VERSION_1_0_STR))==0){
@@ -191,7 +270,49 @@ printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	if (url[strlen(url)-1] == '/'){
 		strncat(path, DEFAULT_FILE, sizeof(path)-strlen(path)-1);
 	}
-	conn->filepath = strdup(path);
+	if (0 == access(path, R_OK)){
+		conn->filepath = strdup(path);
+	}
+	else if (0 != httpd_find_handler(conn)){
+		conn->state = STATE_NOTFOUND;
+	}
+printf("%s %d: %s return", __FILE__, __LINE__, __func__);
 	return state;
 }
 
+const char *lookup_connection(struct connection *conn, enum HTTP_KEY_VALUE_KIND kind, const char *key)
+{
+	struct http_header *pos;
+
+	if (NULL == conn)
+		return NULL;
+
+	for (pos = conn->headers_received; NULL != pos; pos=pos->next){
+		if ((0 != (pos->kind & kind)) && strcasecmp(pos->header, key)==0)
+			return pos->value;
+
+	}
+
+}
+
+
+ 
+char *lookup_querystring(struct connection *conn, const char *name)
+{
+	char *value = NULL;
+	int i;
+	struct key_value_node *node;
+
+	if (conn==NULL || name==NULL || *name == '\0') return value;
+
+	node = conn->query_arguments;
+	while (node){
+		if (0 == strcmp(node->keyname, name)){
+			value = node->value;
+			break;
+		}
+		node = node->next;
+
+	}
+	return value;
+}

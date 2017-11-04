@@ -9,17 +9,29 @@ enum HTTP_STATE {
 	STATE_NOTFOUND	= 404
 
 };
+enum HTTP_CONNECTION_STATE {
+	CONNECTION_INIT = 0,
+	CONNECTION_URL_RECEIVED,
+	CONNECTION_HEADER_RECEIVED,
+	CONNECTION_HEADER_PROCEIVED,
+
+
+
+
+};
 
 struct connection {
 	int state;
 	struct httpd *server;
 	
-	int socket_fd;	
-
+	int socket_fd;
+	struct key_value_node *query_arguments;
+	int query_count;	
+	struct http_header *headers_received;
 	enum HTTP_METHOD method;
 	char *url;
 	char *filepath;
-	int iscgi;
+	int handler_index;
 	char *hdr_accept;//text/plain
 	char *hdr_acpt_charset;	//utf-8
 	char *hdr_encoding;	//gzip, deflate
@@ -32,6 +44,10 @@ struct connection {
 	char *hdr_content_type;	//application/x-www-form-urlencoded
 	int hdr_content_len;
 	unsigned char *postdata;
+	int content_lenght;
+	int content_type;
+	char *content;
+
 	int (*cgihandle)(struct connection *conn);
 };
 
@@ -40,6 +56,7 @@ const char *getStatusDesc(int code);
 int parseHeader(struct connection *conn);
 int getContentLenght(struct connection *conn);
 
+char *http_get_querystring(struct connection *conn);
 
 #endif
 

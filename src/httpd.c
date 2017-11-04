@@ -15,7 +15,18 @@
 #include "connection.h"
 #define MAX_EVENT 64
 
-#define SERVER_STRING "Server: jhttpd/0.1.0\r\n"
+
+#define SERVER_STRING "jhttpd/0.1.0"
+
+static const char *mimeTypes[]={
+			"text/html",
+			"text/javascript",
+			"text/css",
+			"application/json",
+			"image/jpeg",
+			"image/gif",
+			"image/png",
+			NULL};
 
 void error_die(const char *sc)
 {
@@ -63,7 +74,7 @@ void bad_request(int client)
 
 	sprintf(buf, "HTTP/1.0 400 BAD REQUEST\r\n");
 	send(client, buf, sizeof(buf), 0);
-	sprintf(buf, SERVER_STRING);
+	sprintf(buf, "Server: %s\r\n", SERVER_STRING);
 	send(client, buf, strlen(buf), 0);
 	sprintf(buf, "Content-type: text/html\r\n\r\n");
 	send(client, buf, sizeof(buf), 0);
@@ -75,22 +86,22 @@ void unimplemented(int client)
 {
 	 char buf[1024];
 
-	 sprintf(buf, "HTTP/1.0 501 Method Not Implemented\r\n");
-	 send(client, buf, strlen(buf), 0);
-	 sprintf(buf, SERVER_STRING);
-	 send(client, buf, strlen(buf), 0);
-	 sprintf(buf, "Content-Type: text/html\r\n");
-	 send(client, buf, strlen(buf), 0);
-	 sprintf(buf, "\r\n");
-	 send(client, buf, strlen(buf), 0);
-	 sprintf(buf, "<HTML><HEAD><TITLE>Method Not Implemented\r\n");
-	 send(client, buf, strlen(buf), 0);
-	 sprintf(buf, "</TITLE></HEAD>\r\n");
-	 send(client, buf, strlen(buf), 0);
-	 sprintf(buf, "<BODY><P>HTTP request method not supported.\r\n");
-	 send(client, buf, strlen(buf), 0);
-	 sprintf(buf, "</BODY></HTML>\r\n");
-	 send(client, buf, strlen(buf), 0);
+	sprintf(buf, "HTTP/1.0 501 Method Not Implemented\r\n");
+	send(client, buf, strlen(buf), 0);
+	sprintf(buf, "Server: %s\r\n", SERVER_STRING);
+	send(client, buf, strlen(buf), 0);
+	sprintf(buf, "Content-Type: text/html\r\n");
+	send(client, buf, strlen(buf), 0);
+	sprintf(buf, "\r\n");
+	send(client, buf, strlen(buf), 0);
+	sprintf(buf, "<HTML><HEAD><TITLE>Method Not Implemented\r\n");
+	send(client, buf, strlen(buf), 0);
+	sprintf(buf, "</TITLE></HEAD>\r\n");
+	send(client, buf, strlen(buf), 0);
+	sprintf(buf, "<BODY><P>HTTP request method not supported.\r\n");
+	send(client, buf, strlen(buf), 0);
+	sprintf(buf, "</BODY></HTML>\r\n");
+	send(client, buf, strlen(buf), 0);
 }
 
 void not_found(int client)
@@ -99,7 +110,7 @@ void not_found(int client)
 
 	sprintf(buf, "HTTP/1.0 404 NOT FOUND\r\n");
 	send(client, buf, strlen(buf), 0);
-	sprintf(buf, SERVER_STRING);
+	sprintf(buf, "Server: %s\r\n", SERVER_STRING);
 	send(client, buf, strlen(buf), 0);
 	sprintf(buf, "Content-Type: text/html\r\n");
 	send(client, buf, strlen(buf), 0);
@@ -117,7 +128,7 @@ void headers(int client, const char *filename)
 	stat(filename, &sb);
 	strcpy(buf, "HTTP/1.1 200 OK\r\n");
 	send(client, buf, strlen(buf), 0);
-	strcpy(buf, SERVER_STRING);
+	sprintf(buf, "Server: %s\r\n", SERVER_STRING);
 	send(client, buf, strlen(buf), 0);
 	sprintf(buf, "Content-Lenght: %d\r\n", sb.st_size);
 	send(client, buf, strlen(buf), 0);
@@ -219,7 +230,77 @@ int get_line(int sock, char *buf, int size)
 	return i;
 }
 
-int http_response(struct connection* conn)
+int httpd_add_handler(struct httpd *phttpd, const char *url, HttpdAccessHandle handle)
+{
+	int state = -1;
+	int i;
+
+	if (phttpd->handlers_count >= phttpd->handlers_size){
+		phttpd->handlers = realloc(phttpd->handlers, sizeof(struct http_handler)*
+					(phttpd->handlers_size+8));
+		phttpd->handlers_size+=8;
+	}
+	if (phttpd->handlers){
+		phttpd->handlers[phttpd->handlers_count].url = strdup(url);
+		phttpd->handlers[phttpd->handlers_count].handle = handle;
+		phttpd->handlers_count++;
+		state = 0;
+	}
+printf("%s %d: %s() count:%d size:%d\n", __FILE__, __LINE__, __func__, phttpd->handlers_count, phttpd->handlers_size);
+	return state;
+}
+
+int httpd_find_handler(struct connection *conn)
+{
+	int state = -1;
+	int i;
+	struct httpd *phttpd;
+
+	if (NULL == conn) return state;
+	conn->handler_index = -1;
+	phttpd = conn->server;
+
+printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
+	for (i=0; i<phttpd->handlers_count; i++){
+		if (0==strcmp(conn->url+1, phttpd->handlers[i].url)){
+			conn->handler_index = i;
+printf("%s %d: %s() idx:%d url:%s\n", __FILE__, __LINE__, __func__, i, conn->url);
+			state = 0;
+			break;
+		}
+	}
+	return state;
+}
+
+int httpd_process_handler(struct connection *conn)
+{
+	int state = -1;
+	
+	if (NULL == conn) return state;
+
+	if (NULL == conn->filepath && conn->handler_index>=0){
+		return conn->server->handlers[conn->handler_index].handle(conn);
+	}	
+ 
+	return state;
+
+}
+int response_buffer(struct connection *conn)
+{
+	int state = 0;
+	char buff[512];
+	snprintf(buff, 512, "HTTP/1.1 200 OK\r\nServer: %s\r\nContent-Type: %s\r\n", SERVER_STRING, mimeTypes[conn->content_type]);
+	if (conn->content_lenght){
+		int ll = strlen(buff);
+		snprintf(buff+ll, 512-ll, "Content-Lenght: %d\r\n", conn->content_lenght);
+	}
+	strcat(buff, "\r\n");
+	send(conn->socket_fd, buff, strlen(buff), 0);
+	send(conn->socket_fd, conn->content, strlen(conn->content),0);	
+	return state;
+}
+
+int httpd_response(struct connection* conn)
 {
 	int state = 0;
 	
@@ -233,11 +314,11 @@ printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 			break;
 		case STATE_OK:
 		case 0:
-			if (conn->iscgi==0){
+			if (conn->filepath){
 				send_file(conn->socket_fd, conn->filepath);
 			}
 			else
-				conn->cgihandle(conn);
+				response_buffer(conn);
 			break;
 		case STATE_REQERR:
 		default:
@@ -248,6 +329,7 @@ printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	return state;
 }
 
+#if 0
 void accept_request(struct httpd *phttpd, int sockfd)
 {
 	#define BUFFER_SIZE 4096 //MAX HTTP Request Header limited
@@ -261,14 +343,17 @@ void accept_request(struct httpd *phttpd, int sockfd)
 		int ret = recv(sockfd, buf, BUFFER_SIZE-1, MSG_PEEK);// MSG_PEEK 查看数据,并不从系统缓冲区移走数据
 		if( ret < 0 ) {  
 			/*下面if条件成立，则读缓冲区数据已经读取完成*/ 
-			if( ( errno == EAGAIN ) || ( errno == EWOULDBLOCK )) {
-				printf( "read later\n" );
+			if( ( errno == EAGAIN ) || ( errno == EINTR ) || ( errno == EWOULDBLOCK )) {
+				printf( "read later: %d\n", errno);
 				break;
 			}
-			printf("close socket: %d\n", sockfd);
+			else {
+			printf("read error: %d, close socket: %d\n", error, sockfd);
 			close( sockfd );
+			//epoll_ctl(
 			del_connfd(phttpd, sockfd);
-			break;  
+			break;
+			}  
                 }  
                 else if( ret == 0 ){
 			printf("close socket: %d\n", sockfd);
@@ -287,7 +372,7 @@ void accept_request(struct httpd *phttpd, int sockfd)
 					recv(sockfd, buf, hd_size, 0);
 					parse_header(conn, buf, hd_size);
 					check_responder(conn);
-					http_response(conn);
+					httpd_response(conn);
 					//keep alive????
 					close(sockfd);
 					del_connfd(phttpd, sockfd);
@@ -297,6 +382,7 @@ void accept_request(struct httpd *phttpd, int sockfd)
 		}
 	}
 }
+#endif
 
 int epoll_write(int fd, unsigned char *buff, int len)
 {
@@ -354,7 +440,7 @@ static void epool_triger(struct epoll_event* events, int num, int epollfd, struc
 }
 #endif
 
-static void epoll_addfd(epollfd, fd)
+static void epoll_addfd(int epfd, int fd)
 {
 	struct epoll_event event;
 	int flags;
@@ -365,7 +451,17 @@ static void epoll_addfd(epollfd, fd)
 
 	event.data.fd = fd;
 	event.events = EPOLLIN | EPOLLET;
-	epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &event);
+	epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &event);
+
+}
+
+static void epoll_delfd(int epfd, int fd)
+{
+	struct epoll_event event;
+	
+	memset(&event, 0, sizeof(event));
+	event.data.fd = fd;
+	epoll_ctl(epfd, EPOLL_CTL_DEL, fd, &event);
 
 }
 
@@ -399,7 +495,7 @@ int epoll_run(struct httpd* phttpd)
 				(!(events[i].events & EPOLLIN))){
 				/* An error has occured on this fd, or the socket is not
 				 ready for reading (why were we notified then?) */
-				fprintf (stderr, "epoll error\n");
+				perror("epoll error");
 				//close (eventfd);
 				del_connfd(phttpd, eventfd);
 				continue;
@@ -454,12 +550,18 @@ int epoll_run(struct httpd* phttpd)
 
 					//count = read (eventfd, buf, sizeof buf);
 					count = recv(eventfd, buf, sizeof(buf), MSG_PEEK);// MSG_PEEK 查看数据,并不从系统缓冲区移走数据
-					if (count == -1) {
+					if (count < 0) {
 						/* If errno == EAGAIN, that means we have read all
 						 data. So go back to the main loop. */
-						if (errno != EAGAIN) {
-							perror ("recv error");
+						perror ("recv error");
+						if ( EAGAIN==errno || EINTR==errno ) {
+							printf("error no: %d\n", errno);
+						}
+						else {
 							//done = 1;
+							printf("close %d\n", eventfd);
+							close(eventfd);
+							epoll_delfd(epfd, eventfd);
 							del_connfd(phttpd, eventfd);
 						}
 						break;
@@ -485,8 +587,9 @@ int epoll_run(struct httpd* phttpd)
 								recv(eventfd, buf, hd_size, 0);
 								parse_header(conn, buf, hd_size);
 								check_responder(conn);
-								http_response(conn);
-								del_connfd(phttpd, eventfd);
+								httpd_process_handler(conn);
+								httpd_response(conn);
+								//del_connfd(phttpd, eventfd);
 							}
 						}
 					}
