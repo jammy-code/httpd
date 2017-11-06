@@ -490,54 +490,48 @@ int epoll_run(struct httpd* phttpd)
 		}
 		for (i = 0; i < ret; i++){
 			int eventfd = events[i].data.fd;
-			if ((events[i].events & EPOLLERR) ||
-				(events[i].events & EPOLLHUP) ||
-				(!(events[i].events & EPOLLIN))){
-				/* An error has occured on this fd, or the socket is not
-				 ready for reading (why were we notified then?) */
-				perror("epoll error");
-				//close (eventfd);
-				del_connfd(phttpd, eventfd);
-				continue;
-			}
-			else if (phttpd->socket == eventfd){
-				/* We have a notification on the listening socket, which
-				means one or more incoming connections. */
-				while (1){
-					struct sockaddr in_addr;
-					socklen_t in_len;
-					int infd, s;
-					char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
+			unsigned long evt = events[i].events;
+			if (phttpd->socket == eventfd){	//new accept;
+				printf("epoll events:%08x, error no:%d\r\n", evt, errno);
+				if (events[i].events & EPOLLIN) {
+					while(1) {
+						socklen_t in_len;
+						int infd, s;
 
-					in_len = sizeof in_addr;
-					infd = accept (phttpd->socket, &in_addr, &in_len);
-					if (infd == -1){
-						if ((errno == EAGAIN) || (errno == EWOULDBLOCK)){
-							/* We have processed all incoming
-							connections. */
-							break;
+						in_len = sizeof in_addr;
+						infd = accept (phttpd->socket, &in_addr, &in_len);
+						if (infd > 0){
+							s = getnameinfo (&in_addr, in_len,
+								hbuf, sizeof hbuf,
+								sbuf, sizeof sbuf,
+								NI_NUMERICHOST | NI_NUMERICSERV);
+							if (s == 0) {
+								printf("Accepted connection on descriptor %d "
+									"(host=%s, port=%s)\n", infd, hbuf, sbuf);
+							}
+							printf("add connection %d\r\n", infd);
+							epoll_addfd(epfd, infd);
+							add_connection(phttpd, infd);
 						}
 						else {
-							perror ("accept");
-							break;
+							printf("accept error:%d\r\n", errno);
+							if (errno == EAGAIN) {
+								break;
+							}
+							else if (errno == EINTR){
+								;//do nothing
+							}
+							else {
+								printf("socket error, should relisten...\r\n");
+							}
 						}
-					}
-
-					s = getnameinfo (&in_addr, in_len,
-							hbuf, sizeof hbuf,
-							sbuf, sizeof sbuf,
-							NI_NUMERICHOST | NI_NUMERICSERV);
-					if (s == 0) {
-					printf("Accepted connection on descriptor %d "
-					     "(host=%s, port=%s)\n", infd, hbuf, sbuf);
-					}
-					/* Make the incoming socket non-blocking and add it to the list of fds to monitor. */
-					epoll_addfd(epfd, infd);
-					add_connection(phttpd, infd);
+					}//while
 				}
-				continue;
+				else if (evt & EPOLLERR ||  evt & EPOLLHUP ){
+					printf("epoll error, events:%d\r\n", evt);
+				}
 			}
-			else if (events[i].events & EPOLLIN) {
+			else if (evt & EPOLLIN) {	//new data
 				/* We have data on the fd waiting to be read. Read and
 				 display it. We must read whatever data is available
 				 completely, as we are running in edge-triggered mode
@@ -596,11 +590,10 @@ int epoll_run(struct httpd* phttpd)
 				}
 			}
 			else {
-				printf( "something else happened \n" );
+				printf( "something else happened fd:%d, event:%d\r\n", eventfd, evt);
 			}
 
-                }
-		//epool_triger( events, ret, epfd, phttpd);
+                }//for
 	}
 	close(epfd);
 }
