@@ -433,7 +433,7 @@ void error_die(const char *sc)
 const char *get_datetime_string()
 {
 	const char *ret=NULL;
-	static const char str_datetime[32];
+	const char str_datetime[32];
 	static const char *const days[]={
 		"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
 	static const char *const mons[] ={
@@ -453,7 +453,6 @@ const char *get_datetime_string()
 			(unsigned int) now.tm_hour, (unsigned int) now.tm_min,
 			(unsigned int) now.tm_sec);
 	ret = str_datetime;
-printf("Date: %s\n", str_datetime);
 	return ret;
 }
 
@@ -504,34 +503,102 @@ void bad_request(int client)
 	sprintf(buf, "<P>Your browser sent a bad request, such as a POST without a Content-Length.</P>\r\n");
 	send(client, buf, sizeof(buf), 0);
 }
+#define HTML_NON_AUTH_INFO "<p></p>"
+#define HTML_BAD_REQUEST "<p></p>"
+#define HTML_UNAUTHORIZED "<p></p>"
+#define HTML_REQ_TIMEOUT "<p></p>"
+#define HTML_REG_ENT_TOO_LARGE "<p></p>"
+#define HTML_REQ_URI_TOO_LONG "<p></p>"
+#define HTML_INTE_SERV_ERR "<p></p>"
+#define HTML_NOT_IMPL "<HTML><HEAD><TITLE>Method Not Implemented</TITLE></HEAD><BODY><P>HTTP request method not supported.</BODY></HTML>"
+#define HTML_BAD_GATEWAY "<p></p>"
+#define HTML_SERV_UNAV "<p></p>"
+#define HTML_VER_NOT_SUPP "<p></p>"
+#define HTML_UNKNOWN_ERROR "<p></p>"
 
-void unimplemented(int client)
+void request_error(struct connection *conn)
 {
-	 char buf[1024];
-
-	sprintf(buf, "HTTP/1.1 501 Method Not Implemented\r\n");
-	send(client, buf, strlen(buf), 0);
-	sprintf(buf, "Server: %s\r\n", SERVER_STRING);
-	send(client, buf, strlen(buf), 0);
-	sprintf(buf, "Content-Type: text/html\r\n");
-	send(client, buf, strlen(buf), 0);
-	sprintf(buf, "\r\n");
-	send(client, buf, strlen(buf), 0);
-	sprintf(buf, "<HTML><HEAD><TITLE>Method Not Implemented\r\n");
-	send(client, buf, strlen(buf), 0);
-	sprintf(buf, "</TITLE></HEAD>\r\n");
-	send(client, buf, strlen(buf), 0);
-	sprintf(buf, "<BODY><P>HTTP request method not supported.\r\n");
-	send(client, buf, strlen(buf), 0);
-	sprintf(buf, "</BODY></HTML>\r\n");
+	char buff[1024];
+	int clen = 0;
+	const char *cont;
+	
+	if (NULL == conn) return;
+	
+	sprintf(buff, "HTTP/1.1 %d ", conn->state);
+	switch (conn->state){
+		
+		case 203:
+			strcat(buff, "Non-Authoritative Information\r\n");
+			clen = sizeof(HTML_NON_AUTH_INFO)-1;
+			cont = HTML_NON_AUT
+H_INFO;
+			break;	
+		case 400:
+			strcat(buff, "BAD REQUEST\r\n");
+			clen = sizeof(HTML_BAD_REQUEST)-1;
+			cont = HTML_BAD_REQUEST;
+			break;
+		case 401:
+			strcat (buff, "Unauthorized");
+			clen = sizeof(HTML_UNAUTHORIZED)-1;
+			cont = HTML_UNAUTHORIZED;
+			break;
+		case 408:
+			strcat (buff, "Request Timeout");
+			clen = sizeof(HTML_REQ_TIMEOUT)-1;
+			cont = HTML_REQ_TIMEOUT；
+			break;
+		case 413:
+			strcat (buff, "Request Entity Too Large");
+			clen = sizeof(HTML_REG_ENT_TOO_LARGE)-1;
+			cont = HTML_REG_ENT_TOO_LARGE；
+			break;
+		case 414:
+			strcat (buff, "Request URI Too Long");
+			clen = sizeof(HTML_REQ_URI_TOO_LONG)-1;
+			cont = HTML_REQ_URI_TOO_LONG；
+			break;
+		case 500:
+			strcat (buff, "Internal Server Error");
+			clen = sizeof(HTML_INTE_SERV_ERR)-1;
+			cont = HTML_INTE_SERV_ERR；
+			break;
+		case 501:
+			strcat (buff, "Not Implemented");
+			clen = sizeof(HTML_NOT_IMPL)-1;
+			cont = HTML_NOT_IMPL；
+			break;
+		case 502:
+			strcat (buff, "Bad Gateway");
+			clen = sizeof(HTML_BAD_GATEWAY)-1;
+			cont = HTML_BAD_GATEWAY；
+			break;
+		case 503:
+			strcat (buff, "Service Unavailable");
+			clen = sizeof(HTML_SERV_UNAV)-1;
+			cont = HTML_SERV_UNAV；
+			break;
+		case 505:
+			strcat (buff, "HTTP Version Not Supported");
+			clen = sizeof(HTML_VER_NOT_SUPP)-1;
+			cont = HTML_VER_NOT_SUPP；
+			break;
+		default:
+			strcat (buff, "Unknown Error");
+			clen = sizeof(HTML_UNKNOWN_ERROR)-1;
+			cont = HTML_UNKNOWN_ERROR；
+			break;
+	}
+	snprintf(buf+strlen(buf), sizeof(buf)-strlen(buf), "Content-Type: text/html\r\n"
+			"Content-Length: %d\r\nConnection: close\r\nDate: %s\r\nServer: %s\r\n\r\n%s",
+		 	clen, cont);
 	send(client, buf, strlen(buf), 0);
 }
+
 
 void not_found(int client)
 {
 	char buf[512];
-#define HTML_NOT_FOUND "<HTML><TITLE>Not Found</TITLE><BODY><P>The server could not fulfill your request because the resource specified is unavailable or nonexistent.</P></BODY></HTML>\r\n"
-
 	snprintf(buf, sizeof(buf), "HTTP/1.1 404 NOT FOUND\r\nContent-Type: text/html\r\n"
 			"Content-Length: %d\r\nConnection: close\r\nDate: %s\r\nServer: %s\r\n\r\n%s", strlen(HTML_NOT_FOUND), get_datetime_string(), SERVER_STRING, HTML_NOT_FOUND);
 	send(client, buf, strlen(buf), 0);
@@ -714,60 +781,6 @@ printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	return state;
 }
 
-#if 0
-void accept_request(struct httpd *phttpd, int sockfd)
-{
-	#define BUFFER_SIZE 4096 //MAX HTTP Request Header limited
-	char buf[BUFFER_SIZE];
-	int hd_size = 0;
-
-            /*因为ET模式只触发一次，所以使用循环确保数据全部接受*/  
-	while(1){
-		memset( buf, '\0', BUFFER_SIZE );  
-		//int ret = recv(sockfd, buf, BUFFER_SIZE-1, 0);  
-		int ret = recv(sockfd, buf, BUFFER_SIZE-1, MSG_PEEK);// MSG_PEEK 查看数据,并不从系统缓冲区移走数据
-		if( ret < 0 ) {  
-			/*下面if条件成立，则读缓冲区数据已经读取完成*/ 
-			if( ( errno == EAGAIN ) || ( errno == EINTR ) || ( errno == EWOULDBLOCK )) {
-				printf( "read later: %d\n", errno);
-				break;
-			}
-			else {
-			printf("read error: %d, close socket: %d\n", error, sockfd);
-			close( sockfd );
-			//epoll_ctl(
-			del_connfd(phttpd, sockfd);
-			break;
-			}  
-                }  
-                else if( ret == 0 ){
-			printf("close socket: %d\n", sockfd);
-			close( sockfd );  
-			del_connfd(phttpd, sockfd);
-			break;  
-                }
-                else {
-			char *p = strstr(buf, "\r\n\r\n");
-			if (p){
-				struct connection* conn = get_connection(phttpd, sockfd);
-				if (conn){
-					hd_size = 4 +  (p - buf);
-					printf("header size: %d\n", hd_size);	
-					buf[hd_size] = 0;
-					recv(sockfd, buf, hd_size, 0);
-					parse_header(conn, buf, hd_size);
-					check_responder(conn);
-					httpd_response(conn);
-					//keep alive????
-					close(sockfd);
-					del_connfd(phttpd, sockfd);
-				}
-			}
-			//printf("get %d bytes of content: %s\n", ret, buf);  
-		}
-	}
-}
-#endif
 
 int epoll_write(int fd, unsigned char *buff, int len)
 {
@@ -781,49 +794,6 @@ int epoll_write(int fd, unsigned char *buff, int len)
 
 	return slen;
 }
-
-#if 0
-static void epool_triger(struct epoll_event* events, int num, int epollfd, struct httpd *phttpd)  
-{
-#define BUFFER_SIZE 1024
-	int i;
-	char buf[BUFFER_SIZE];  
-	int listenfd = phttpd->socket;
-	for (i = 0; i < num; i++ ) {  
-		int sockfd = events[i].data.fd;
-		if ((events[i].events & EPOLLERR) ||
-			(events[i].events & EPOLLHUP) ||
-			(!(events[i].events & EPOLLIN)))
-		{
-			/* An error has occured on this fd, or the socket is not
-			ready for reading (why were we notified then?) */
-			fprintf (stderr, "epoll error\n");
-			del_connfd(phttpd, sockfd);
-			continue;
-		}
-		if (NULL == events[i].data.ptr){
-			fprintf (stderr, "shutdown??????\n");
-			continue;	//shutdown signal
-		}
-
-		if ( sockfd == listenfd ){  //new connetion
-			struct sockaddr_in client_addr;  
-			socklen_t addrlength = sizeof(client_addr);  
-			int connfd = accept(listenfd, (struct sockaddr*)&client_addr, &addrlength);
-			epoll_addfd(epollfd, connfd);
-			add_connection(phttpd, connfd);
-		}  
-		else if ( events[i].events & EPOLLIN )  
-		{  
-			printf( "event trigger once %d\n", events[i].data.fd );  //recv data
-			accept_request(phttpd, events[i].data.fd);
-		}
-		else {
-			printf( "something else happened \n" );
-		}
-	}
-}
-#endif
 
 static void epoll_addfd(int epfd, int fd)
 {
