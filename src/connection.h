@@ -43,13 +43,13 @@ struct connection {
 	char *hdr_cookie;
 	char *hdr_content_type;	//application/x-www-form-urlencoded
 	int hdr_content_len;
+	struct key_value_node *cookies;
 	unsigned char *postdata;
 	struct key_value_node *post_arguments;
 	int content_length;
 	int content_type;
 	char *content;
-
-	int (*cgihandle)(struct connection *conn);
+	struct key_value_node *response_headers;
 };
 
 
