@@ -487,7 +487,7 @@ struct httpd *create_httpd(struct httpd_conf *hconf)
 	if (phttpd->conns){
 		memset(phttpd->conns, 0, sizeof(struct connection*) * 128);
 	}
- 	return phttpd;
+	return phttpd;
 }
 
 void bad_request(int client)
@@ -506,6 +506,7 @@ void bad_request(int client)
 #define HTML_NON_AUTH_INFO "<p></p>"
 #define HTML_BAD_REQUEST "<p></p>"
 #define HTML_UNAUTHORIZED "<p></p>"
+#define HTML_NOT_FOUND "<p>The webpage cannot be found!</p>"
 #define HTML_REQ_TIMEOUT "<p></p>"
 #define HTML_REG_ENT_TOO_LARGE "<p></p>"
 #define HTML_REQ_URI_TOO_LONG "<p></p>"
@@ -530,19 +531,24 @@ void request_error(struct connection *conn)
 		case 203:
 			strcat(buff, "Non-Authoritative Information\r\n");
 			clen = sizeof(HTML_NON_AUTH_INFO)-1;
-			cont = HTML_NON_AUT
-H_INFO;
+			cont = HTML_NON_AUTH_INFO;
 			break;	
 		case 400:
 			strcat(buff, "BAD REQUEST\r\n");
 			clen = sizeof(HTML_BAD_REQUEST)-1;
-			cont = HTML_BAD_REQUEST;
+			cont = HTML_NOT_FOUND;
 			break;
 		case 401:
 			strcat (buff, "Unauthorized");
 			clen = sizeof(HTML_UNAUTHORIZED)-1;
 			cont = HTML_UNAUTHORIZED;
 			break;
+		case 404:
+			strcat (buff, "Unauthorized");
+			clen = sizeof(HTML_NOT_FOUND)-1;
+			cont = HTML_NOT_FOUND;
+			break;
+			
 		case 408:
 			strcat (buff, "Request Timeout");
 			clen = sizeof(HTML_REQ_TIMEOUT)-1;
