@@ -490,21 +490,8 @@ struct httpd *create_httpd(struct httpd_conf *hconf)
 	return phttpd;
 }
 
-void bad_request(int client)
-{
-	char buf[256];
-
-	sprintf(buf, "HTTP/1.1 400 BAD REQUEST\r\n");
-	send(client, buf, sizeof(buf), 0);
-	sprintf(buf, "Server: %s\r\n", SERVER_STRING);
-	send(client, buf, strlen(buf), 0);
-	sprintf(buf, "Content-type: text/html\r\n\r\n");
-	send(client, buf, sizeof(buf), 0);
-	sprintf(buf, "<P>Your browser sent a bad request, such as a POST without a Content-Length.</P>\r\n");
-	send(client, buf, sizeof(buf), 0);
-}
 #define HTML_NON_AUTH_INFO "<p></p>"
-#define HTML_BAD_REQUEST "<p></p>"
+#define HTML_BAD_REQUEST "<P>Your browser sent a bad request, such as a POST without a Content-Length.</P>"
 #define HTML_UNAUTHORIZED "<p></p>"
 #define HTML_NOT_FOUND "<p>The webpage cannot be found!</p>"
 #define HTML_REQ_TIMEOUT "<p></p>"
@@ -598,15 +585,6 @@ void request_error(struct connection *conn)
 	snprintf(buf+strlen(buf), sizeof(buf)-strlen(buf), "Content-Type: text/html\r\n"
 			"Content-Length: %d\r\nConnection: close\r\nDate: %s\r\nServer: %s\r\n\r\n%s",
 		 	clen, cont);
-	send(client, buf, strlen(buf), 0);
-}
-
-
-void not_found(int client)
-{
-	char buf[512];
-	snprintf(buf, sizeof(buf), "HTTP/1.1 404 NOT FOUND\r\nContent-Type: text/html\r\n"
-			"Content-Length: %d\r\nConnection: close\r\nDate: %s\r\nServer: %s\r\n\r\n%s", strlen(HTML_NOT_FOUND), get_datetime_string(), SERVER_STRING, HTML_NOT_FOUND);
 	send(client, buf, strlen(buf), 0);
 }
 
@@ -744,12 +722,10 @@ int response_buffer(struct connection *conn)
 	char buff[512];
 printf("%s %d: %s() content-type:%d\n", __FILE__, __LINE__, __func__, conn->content_type);
 	snprintf(buff, 512, "HTTP/1.1 200 OK\r\nServer: %s\r\nContent-Type: %s\r\n", SERVER_STRING, mimeTypes[conn->content_type]);
-printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	if (conn->content_length){
 		int ll = strlen(buff);
 		snprintf(buff+ll, 512-ll, "Content-Length: %d\r\n", conn->content_length);
 	}
-printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	strcat(buff, "\r\n");
 	send(conn->socket_fd, buff, strlen(buff), 0);
 	send(conn->socket_fd, conn->content, strlen(conn->content),0);	
@@ -763,12 +739,6 @@ int httpd_response(struct connection* conn)
 	
 printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 	switch(conn->state){
-		case STATE_NOTFOUND:
-			not_found(conn->socket_fd);
-			break;
-		case 501:
-			unimplemented(conn->socket_fd);
-			break;
 		case STATE_OK:
 		case 0:
 			if (conn->filepath){
@@ -780,7 +750,7 @@ printf("%s %d: %s()\n", __FILE__, __LINE__, __func__);
 			break;
 		case STATE_REQERR:
 		default:
-			bad_request(conn->socket_fd);
+			request_error(conn);
 			
 	}
 	clear_request(conn);
